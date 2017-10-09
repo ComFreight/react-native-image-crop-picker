@@ -64,6 +64,7 @@
 RCT_EXPORT_MODULE();
 
 @synthesize bridge = _bridge;
+CGSize selectedImageSize;
 
 - (instancetype)init
 {
@@ -688,12 +689,14 @@ RCT_EXPORT_METHOD(openCropper:(NSDictionary *)options
 - (void) processSingleImagePick:(UIImage*)image withExif:(NSDictionary*) exif withViewController:(UIViewController*)viewController withSourceURL:(NSString*)sourceURL withLocalIdentifier:(NSString*)localIdentifier withFilename:(NSString*)filename withCreationDate:(NSDate*)creationDate withModificationDate:(NSDate*)modificationDate {
 
     if (image == nil) {
+
         [viewController dismissViewControllerAnimated:YES completion:[self waitAnimationEnd:^{
             self.reject(ERROR_PICKER_NO_DATA_KEY, ERROR_PICKER_NO_DATA_MSG, nil);
         }]];
         return;
     }
 
+    selectedImageSize = CGSizeMake(image.size.width, image.size.height);
     NSLog(@"id: %@ filename: %@", localIdentifier, filename);
 
     if ([[[self options] objectForKey:@"cropping"] boolValue]) {
@@ -751,7 +754,7 @@ RCT_EXPORT_METHOD(openCropper:(NSDictionary *)options
 
     CGRect maskRect = CGRectMake((viewWidth - maskSize.width) * 0.5f,
                                  (viewHeight - maskSize.height) * 0.5f,
-                                 maskSize.width, maskSize.height);
+                                 selectedImageSize.width, selectedImageSize.height);
 
     return maskRect;
 }
