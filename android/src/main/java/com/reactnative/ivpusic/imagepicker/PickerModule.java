@@ -12,6 +12,8 @@ import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
+import android.provider.DocumentsContract;
+import android.provider.DocumentsProvider;
 import android.provider.MediaStore;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.FileProvider;
@@ -321,8 +323,24 @@ class PickerModule extends ReactContextBaseJavaModule implements ActivityEventLi
         try {
             final Intent galleryIntent = new Intent(Intent.ACTION_GET_CONTENT);
 
-            if (cropping || mediaType.equals("photo")) {
-                galleryIntent.setType("image/*");
+            if (mediaType.equals("photo_and_docs")) {
+                galleryIntent.setType("*/*");
+                String[] mimetypes = {
+                    "image/*",
+                    "application/pdf",
+                    "application/msword",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                };
+                galleryIntent.putExtra(Intent.EXTRA_MIME_TYPES, mimetypes);
+            } else if (cropping || mediaType.equals("photo")) {
+                Intent galleryPickIntent = new Intent(Intent.ACTION_PICK, android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                galleryPickIntent.setType("image/*");
+
+                Intent chooserIntent = Intent.createChooser(galleryPickIntent, "Pick an image");
+                activity.startActivityForResult(chooserIntent, IMAGE_PICKER_REQUEST);
+
+                return;
+
             } else if (mediaType.equals("video")) {
                 galleryIntent.setType("video/*");
             } else {
@@ -335,7 +353,7 @@ class PickerModule extends ReactContextBaseJavaModule implements ActivityEventLi
             galleryIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, multiple);
             galleryIntent.addCategory(Intent.CATEGORY_OPENABLE);
 
-            final Intent chooserIntent = Intent.createChooser(galleryIntent, "Pick an image");
+            final Intent chooserIntent = Intent.createChooser(intent, "Pick an image");
             activity.startActivityForResult(chooserIntent, IMAGE_PICKER_REQUEST);
         } catch (Exception e) {
             resultCollector.notifyProblem(E_FAILED_TO_SHOW_PICKER, e);
@@ -441,10 +459,11 @@ class PickerModule extends ReactContextBaseJavaModule implements ActivityEventLi
         String mime = getMimeType(path);
         if (mime != null && mime.startsWith("video/")) {
             getVideo(activity, path, mime);
-            return;
+        } else if (mime != null && mime.startsWith("image/")) {
+            resultCollector.notifySuccess(getImage(activity, path));
+        } else {
+            resultCollector.notifySuccess(getApplicationFile(activity, path, mime));
         }
-
-        resultCollector.notifySuccess(getImage(activity, path));
     }
 
     private Bitmap validateVideo(String path) throws Exception {
@@ -529,6 +548,24 @@ class PickerModule extends ReactContextBaseJavaModule implements ActivityEventLi
         }
 
         return options;
+    }
+
+    private WritableMap getApplicationFile(final Activity activity, String path, String mime) throws Exception {
+        WritableMap map = new WritableNativeMap();
+
+        if (path.startsWith("http://") || path.startsWith("https://")) {
+            throw new Exception("Cannot select remote files");
+        }
+
+        map.putString("path", "file://" + path);
+        map.putString("mime", mime);
+        map.putInt("size", (int) new File(path).length());
+
+        if (includeBase64) {
+            map.putString("data", getBase64StringFromFile(path));
+        }
+
+        return map;
     }
 
     private WritableMap getImage(final Activity activity, String path) throws Exception {
@@ -647,7 +684,9 @@ class PickerModule extends ReactContextBaseJavaModule implements ActivityEventLi
                     return;
                 }
 
-                if (cropping) {
+                final String path = resolveRealPath(activity, uri, false);
+                final String mime = (path != null && !path.isEmpty()) ? getMimeType(path) : null;
+                if (cropping && null != mime && mime.startsWith("image/")) {
                     startCropping(activity, uri);
                 } else {
                     try {
