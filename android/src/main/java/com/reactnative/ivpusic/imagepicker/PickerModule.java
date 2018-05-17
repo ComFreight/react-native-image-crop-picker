@@ -683,7 +683,14 @@ class PickerModule extends ReactContextBaseJavaModule implements ActivityEventLi
                     return;
                 }
 
-                final String path = resolveRealPath(activity, uri, false);
+                String path = "";
+                try {
+                  path = resolveRealPath(activity, uri, false);
+                } catch (Exception ex) {
+                  resultCollector.notifyProblem(E_NO_IMAGE_DATA_FOUND, ex.getMessage());
+                  return;
+                }
+
                 final String mime = (path != null && !path.isEmpty()) ? getMimeType(path) : null;
                 if (cropping && null != mime && mime.startsWith("image/")) {
                     startCropping(activity, uri);
