@@ -68,8 +68,8 @@ class RealPathUtil {
                 };
 
                 for (String contentUriPrefix : contentUriPrefixesToTry) {
-                    Uri contentUri = ContentUris.withAppendedId(Uri.parse(contentUriPrefix), Long.parseLong(id));
                     try {
+                        Uri contentUri = ContentUris.withAppendedId(Uri.parse(contentUriPrefix), Long.parseLong(id));
                         String path = getDataColumn(context, contentUri, null, null);
                         if (path != null) {
                             return path;
